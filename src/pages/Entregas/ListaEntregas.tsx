@@ -2,20 +2,14 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useEntregas } from '@/hooks/useEntregas';
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Plus, Truck, LayoutGrid, List, MoreVertical, User, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { Plus, Truck, LayoutGrid, List, MoreVertical, User, DollarSign, Calendar } from 'lucide-react';
 import { EntregaCompleta, SituacaoPedido } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils';
 
-const statusOrder: SituacaoPedido[] = [
-  'pedido_confirmado',
-  'pronto_envio',
-  'enviado',
-  'entrega_realizada',
-  'entrega_sem_sucesso', // Agrupando problemas
-];
+
 
 const statusProblematicos: SituacaoPedido[] = ['entrega_sem_sucesso', 'devolvido_remetente', 'avariado', 'extravio'];
 

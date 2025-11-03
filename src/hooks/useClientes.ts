@@ -2,19 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
-interface Cliente {
-  id: string
-  nome: string
-  cpf?: string
-  cnpj?: string
-  telefone: string
-  email: string
-  endereco: string
-  cidade: string
-  uf: string
-  cep: string
-  observacao?: string
-}
+import { Cliente } from '@/types';
 
 export const useClientes = () => {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -37,7 +25,7 @@ export const useClientes = () => {
     }
   }
 
-  const createCliente = async (cliente: Omit<Cliente, 'id'>) => {
+  const createCliente = async (cliente: any) => {
     try {
       const { data, error } = await supabase
         .from('clientes')

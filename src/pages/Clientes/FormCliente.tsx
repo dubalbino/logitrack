@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useClientes } from '@/hooks/useClientes';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, User, Building, Phone, Mail, MapPin, Save } from 'lucide-react';
+import { ArrowLeft, Check, User, Building } from 'lucide-react';
 import { fetchCEP, validateCPF, validateCNPJ } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -65,13 +65,25 @@ const FormCliente = () => {
     resolver: zodResolver(clienteSchema),
     defaultValues: async () => {
       if (isEditMode) {
-        // TODO: Fetch single client instead of filtering from list
         const cliente = clientes.find(c => c.id === id);
-        return cliente ? { ...cliente, tipo_pessoa: cliente.cnpj ? 'juridica' : 'fisica' } : {};
+        if (cliente) {
+          return { ...cliente, tipo_pessoa: cliente.cnpj ? 'juridica' : 'fisica' };
+        }
       }
       return {
         data_cadastro: new Date().toISOString().split('T')[0],
         tipo_pessoa: 'fisica',
+        nome: '',
+        telefone: '',
+        email: '',
+        cep: '',
+        endereco: '',
+        cidade: '',
+        uf: '',
+        cpf: '',
+        cnpj: '',
+        complemento: '',
+        observacao: ''
       };
     }
   });
@@ -94,7 +106,7 @@ const FormCliente = () => {
     }
   };
 
-  const onSubmit = async (values: ClienteFormValues) => {
+  const onSubmit: SubmitHandler<ClienteFormValues> = async (values) => {
     try {
       if (isEditMode) {
         await updateCliente(id!, values);

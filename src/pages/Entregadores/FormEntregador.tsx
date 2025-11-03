@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEntregadores } from '@/hooks/useEntregadores';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, User, Car, Shield, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { differenceInDays, isBefore, isWithinInterval, addDays } from 'date-fns';
 
 // --- Zod Schema ---
@@ -82,9 +82,21 @@ const FormEntregador = () => {
     defaultValues: async () => {
         if (isEditMode) {
             const entregador = entregadores.find(e => e.id === id);
-            return entregador;
+            if (entregador) {
+              return entregador;
+            }
         }
-        return { data_cadastro: new Date().toISOString().split('T')[0] };
+        return {
+          data_cadastro: new Date().toISOString().split('T')[0],
+          nome: '',
+          telefone: '',
+          email: '',
+          veiculo_modelo: '',
+          veiculo_placa: '',
+          cnh_numero: '',
+          cnh_vencimento: '',
+          observacao: ''
+        };
     }
   });
 
@@ -94,7 +106,7 @@ const FormEntregador = () => {
   const handleNext = () => setCurrentStep(step => step + 1);
   const handlePrev = () => setCurrentStep(step => step - 1);
 
-  const onSubmit = async (values: EntregadorFormValues) => {
+  const onSubmit: SubmitHandler<EntregadorFormValues> = async (values) => {
     try {
       if (isEditMode) {
         await updateEntregador(id!, values);
@@ -145,7 +157,7 @@ const FormEntregador = () => {
                 <div><label>Número da CNH*</label><input {...register('cnh_numero')} className="w-full mt-2 input"/>{errors.cnh_numero && <p className='form-error'>{errors.cnh_numero.message}</p>}</div>
                 <div><label>Data de Vencimento*</label><input {...register('cnh_vencimento')} type="date" className="w-full mt-2 input"/>{errors.cnh_vencimento && <p className='form-error'>{errors.cnh_vencimento.message}</p>}</div>
                 <div className="md:col-span-2"><label>Status da CNH</label><div className="mt-2"><CnhStatus vencimento={cnhVencimento} /></div></div>
-                <div className="md:col-span-2"><label>Upload da CNH (opcional)</label><div className="mt-2 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md"><div class="space-y-1 text-center"><p>Arraste e solte ou clique para enviar</p></div></div></div>
+                <div className="md:col-span-2"><label>Upload da CNH (opcional)</label><div className="mt-2 flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md"><div className="space-y-1 text-center"><p>Arraste e solte ou clique para enviar</p></div></div></div>
             </motion.div>
           )}
         </form>

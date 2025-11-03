@@ -24,7 +24,7 @@ export const useEntregas = () => {
     }
   }, []);
 
-  const createEntrega = async (entrega: Omit<Entrega, 'id' | 'created_at' | 'numero_pedido'>) => {
+  const createEntrega = async (entrega: any) => {
     try {
       const { data, error } = await supabase
         .from('entregas') // Inserir na tabela principal

@@ -1,4 +1,4 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -7,8 +7,6 @@ import { ArrowLeft } from 'lucide-react';
 import { useEntregas } from '@/hooks/useEntregas';
 import { useClientes } from '@/hooks/useClientes';
 import { useEntregadores } from '@/hooks/useEntregadores';
-import { Entrega } from '@/types';
-import toast from 'react-hot-toast';
 
 // --- Zod Schema ---
 const entregaSchema = z.object({
@@ -18,7 +16,7 @@ const entregaSchema = z.object({
   valor: z.number().min(0.01, 'Valor deve ser maior que zero'),
   cliente_id: z.string().uuid('Selecione um cliente'),
   entregador_id: z.string().uuid('Selecione um entregador'),
-  situacao_pedido: z.string().nonempty('Situação é obrigatória'),
+  situacao_pedido: z.enum(['pedido_confirmado', 'pronto_envio', 'enviado', 'entrega_realizada', 'entrega_sem_sucesso', 'devolvido_remetente', 'avariado', 'extravio']),
   user_id: z.string().optional(), // Será preenchido no backend ou hook
 });
 
@@ -37,18 +35,26 @@ const FormEntrega = () => {
     resolver: zodResolver(entregaSchema),
     defaultValues: async () => {
       if (isEditMode) {
-        return entregas.find(e => e.id === id);
+        const entrega = entregas.find(e => e.id === id);
+        if (entrega) {
+          return entrega;
+        }
       }
       return {
         data_pedido: new Date().toISOString().split('T')[0],
         situacao_pedido: 'pedido_confirmado',
+        previsao_entrega: '',
+        descricao_compra: '',
+        valor: 0,
+        cliente_id: '',
+        entregador_id: ''
       };
     }
   });
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = form;
 
-  const onSubmit = async (values: EntregaFormValues) => {
+  const onSubmit: SubmitHandler<EntregaFormValues> = async (values) => {
     try {
       if (isEditMode) {
         await updateEntrega(id!, values);
@@ -71,7 +77,7 @@ const FormEntrega = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Seção 1: Informações do Pedido */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
-          <h2 class="text-xl font-bold text-slate-800 mb-4">Informações do Pedido</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Informações do Pedido</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div><label>Data do Pedido*</label><input type="date" {...register('data_pedido')} className="w-full mt-2 input"/>{errors.data_pedido && <p className='form-error'>{errors.data_pedido.message}</p>}</div>
             <div><label>Previsão de Entrega*</label><input type="date" {...register('previsao_entrega')} className="w-full mt-2 input"/>{errors.previsao_entrega && <p className='form-error'>{errors.previsao_entrega.message}</p>}</div>
@@ -82,7 +88,7 @@ const FormEntrega = () => {
 
         {/* Seção 2: Cliente */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
-          <h2 class="text-xl font-bold text-slate-800 mb-4">Cliente</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Cliente</h2>
           <Controller
             name="cliente_id"
             control={control}

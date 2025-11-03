@@ -36,7 +36,7 @@ export const useEntregadores = () => {
     }
   };
 
-  const createEntregador = async (entregador: Omit<Entregador, 'id'>) => {
+  const createEntregador = async (entregador: any) => {
     try {
       const { data, error } = await supabase
         .from('entregadores')

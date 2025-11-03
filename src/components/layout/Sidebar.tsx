@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Users, Truck, FileText, Settings, User, Bell, UserCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Home, Users, Truck, FileText, Settings, Bell, UserCheck } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },

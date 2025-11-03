@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useEntregadores } from '@/hooks/useEntregadores';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Truck, Search, AlertTriangle, CheckCircle, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Truck, AlertTriangle, CheckCircle, Eye, Edit, Trash2 } from 'lucide-react';
 import { getInitials, formatDate } from '@/lib/utils';
 import { Entregador } from '@/types';
 

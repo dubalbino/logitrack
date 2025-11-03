@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useClientes } from '@/hooks/useClientes';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Search, MapPin, Calendar, Info, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Users, Search, MapPin, Info, Eye, Edit, Trash2 } from 'lucide-react';
 import { getInitials, formatDate } from '@/lib/utils';
 import { Cliente } from '@/types';
 

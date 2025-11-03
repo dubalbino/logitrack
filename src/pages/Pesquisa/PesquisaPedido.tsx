@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Package, User, Truck, Calendar, DollarSign, FileText, Share2, Edit, MapPin } from 'lucide-react';
+import { Search, Package, User, Truck, FileText, Share2, Edit } from 'lucide-react';
 import { useEntregas } from '@/hooks/useEntregas';
 import { EntregaCompleta } from '@/types';
-import { formatDate, formatCurrency, getStatusLabel, getStatusColor } from '@/lib/utils';
+import { formatDate, formatCurrency, getStatusLabel } from '@/lib/utils';
 
 // Placeholder for a more detailed history
 const OrderHistory = ({ entrega }: { entrega: EntregaCompleta }) => (
