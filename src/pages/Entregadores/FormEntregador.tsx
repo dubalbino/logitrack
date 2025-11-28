@@ -24,9 +24,10 @@ const entregadorSchema = z.object({
 type EntregadorFormValues = z.infer<typeof entregadorSchema>;
 
 const steps = [
-  { id: 1, name: 'Dados Pessoais' },
-  { id: 2, name: 'Veículo' },
-  { id: 3, name: 'CNH' },
+  { id: 1, name: 'Dados Pessoais', fields: ['nome', 'telefone', 'email'] },
+  { id: 2, name: 'Veículo', fields: ['veiculo_modelo', 'veiculo_placa'] },
+  { id: 3, name: 'CNH', fields: ['cnh_numero', 'cnh_vencimento'] },
+  { id: 4, name: 'Revisão', fields: [] },
 ];
 
 const CnhStatus = ({ vencimento }: { vencimento: string }) => {
@@ -81,9 +82,14 @@ const FormEntregador = () => {
     resolver: zodResolver(entregadorSchema),
     defaultValues: async () => {
         if (isEditMode) {
-            const entregador = entregadores.find(e => e.id === id);
+            // Corrige a busca comparando string com string (após conversão)
+            const entregador = entregadores.find(e => String(e.id) === id);
             if (entregador) {
-              return { ...entregador, cnh_vencimento: entregador.cnh_vencimento ? new Date(entregador.cnh_vencimento).toISOString().split('T')[0] : '' };
+              // Retorna o objeto direto, sem '.fields'
+              return { 
+                ...entregador, 
+                cnh_vencimento: entregador.cnh_vencimento ? new Date(entregador.cnh_vencimento).toISOString().split('T')[0] : '' 
+              };
             }
         }
         return {
