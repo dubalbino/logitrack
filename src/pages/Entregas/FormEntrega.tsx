@@ -1,4 +1,5 @@
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -14,10 +15,13 @@ const entregaSchema = z.object({
   previsao_entrega: z.string().nonempty('Previsão de entrega é obrigatória'),
   descricao_compra: z.string().min(3, 'Descrição é obrigatória'),
   valor: z.number().min(0.01, 'Valor deve ser maior que zero'),
-  cliente_id: z.string().uuid('Selecione um cliente'),
-  entregador_id: z.string().uuid('Selecione um entregador'),
+  cliente_id: z.string().min(1, 'Selecione um cliente'),
+  entregador_id: z.string().min(1, 'Selecione um entregador'),
   situacao_pedido: z.enum(['pedido_confirmado', 'pronto_envio', 'enviado', 'entrega_realizada', 'entrega_sem_sucesso', 'devolvido_remetente', 'avariado', 'extravio']),
-  user_id: z.string().optional(), // Será preenchido no backend ou hook
+  origem: z.string().nonempty('O endereço de origem é obrigatório'),
+  destino: z.string().nonempty('O endereço de destino é obrigatório'),
+  codigo_rastreio: z.string().nullable().optional(),
+  user_id: z.string().nullable().optional(), // Será preenchido no backend ou hook
 });
 
 type EntregaFormValues = z.infer<typeof entregaSchema>;
@@ -33,36 +37,58 @@ const FormEntrega = () => {
 
   const form = useForm<EntregaFormValues>({
     resolver: zodResolver(entregaSchema),
-    defaultValues: async () => {
-      if (isEditMode) {
-        const entrega = entregas.find(e => e.id === id);
-        if (entrega) {
-          return entrega;
-        }
-      }
-      return {
-        data_pedido: new Date().toISOString().split('T')[0],
-        situacao_pedido: 'pedido_confirmado',
-        previsao_entrega: '',
-        descricao_compra: '',
-        valor: 0,
-        cliente_id: '',
-        entregador_id: ''
-      };
+    defaultValues: {
+      data_pedido: new Date().toISOString().split('T')[0],
+      situacao_pedido: 'pedido_confirmado',
+      previsao_entrega: '',
+      descricao_compra: '',
+      valor: 0,
+      cliente_id: '',
+      entregador_id: '',
+      origem: '',
+      destino: '',
+      codigo_rastreio: ''
     }
   });
 
-  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = form;
+  const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset } = form;
+
+  useEffect(() => {
+    if (isEditMode && entregas.length > 0) {
+      const entregaId = Number(id);
+      const entrega = entregas.find(e => e.id === entregaId);
+
+      if (entrega) {
+        // Formata datas e converte IDs para string para o formulário
+        const formattedEntrega = {
+          ...entrega,
+          data_pedido: entrega.data_pedido ? new Date(entrega.data_pedido).toISOString().split('T')[0] : '',
+          previsao_entrega: entrega.previsao_entrega ? new Date(entrega.previsao_entrega).toISOString().split('T')[0] : '',
+          cliente_id: String(entrega.cliente_id),
+          entregador_id: String(entrega.entregador_id),
+        };
+        reset(formattedEntrega);
+      }
+    }
+  }, [id, isEditMode, entregas, reset]);
 
   const onSubmit: SubmitHandler<EntregaFormValues> = async (values) => {
     try {
+      const dataForDb = {
+        ...values,
+        cliente_id: Number(values.cliente_id),
+        entregador_id: Number(values.entregador_id),
+      };
+
       if (isEditMode) {
-        await updateEntrega(id!, values);
+        await updateEntrega(id!, dataForDb as any);
       } else {
-        await createEntrega(values as any);
+        await createEntrega(dataForDb as any);
       }
       navigate('/entregas');
-    } catch (e) {}
+    } catch (e) {
+      console.error('🔥 Falha ao enviar o formulário:', e);
+    }
   };
 
   const entregadoresDisponiveis = entregadores.filter(e => e.cnh_situacao === 'no_prazo');
@@ -75,64 +101,95 @@ const FormEntrega = () => {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Seção 1: Informações do Pedido */}
+        {/* Seção Única: Dados da Entrega */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Informações do Pedido</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div><label>Data do Pedido*</label><input type="date" {...register('data_pedido')} className="w-full mt-2 input"/>{errors.data_pedido && <p className='form-error'>{errors.data_pedido.message}</p>}</div>
-            <div><label>Previsão de Entrega*</label><input type="date" {...register('previsao_entrega')} className="w-full mt-2 input"/>{errors.previsao_entrega && <p className='form-error'>{errors.previsao_entrega.message}</p>}</div>
-            <div className="md:col-span-2"><label>Descrição*</label><textarea {...register('descricao_compra')} className="w-full mt-2 input"/>{errors.descricao_compra && <p className='form-error'>{errors.descricao_compra.message}</p>}</div>
-            <div><label>Valor do Pedido*</label><input type="number" step="0.01" {...register('valor', { valueAsNumber: true })} className="w-full mt-2 input"/>{errors.valor && <p className='form-error'>{errors.valor.message}</p>}</div>
-          </div>
-        </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-6">Dados da Entrega</h2>
+          <div className="grid md:grid-cols-3 gap-6">
 
-        {/* Seção 2: Cliente */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Cliente</h2>
-          <Controller
-            name="cliente_id"
-            control={control}
-            render={({ field }) => (
-              <select {...field} className="w-full input">
-                <option value="">Selecione um cliente</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            )}
-          />
-          {errors.cliente_id && <p className='form-error'>{errors.cliente_id.message}</p>}
-        </div>
-
-        {/* Seção 3: Entrega e Logística */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-lg">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Entrega e Logística</h2>
-          <div className="grid md:grid-cols-2 gap-6">
+            {/* Row 1 */}
             <div>
-              <label>Situação do Pedido*</label>
-              <Controller name="situacao_pedido" control={control} render={({ field }) => (
-                  <select {...field} className="w-full mt-2 input">
-                      <option value="pedido_confirmado">Pedido Confirmado</option>
-                      <option value="pronto_envio">Pronto para Envio</option>
-                      <option value="enviado">Enviado</option>
-                      {/* Outros status */}
-                  </select>
-              )}/>
-              {errors.situacao_pedido && <p className='form-error'>{errors.situacao_pedido.message}</p>}
+              <label className="font-medium text-slate-700">Data do Pedido*</label>
+              <input type="date" {...register('data_pedido')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.data_pedido && <p className="text-red-500 text-xs mt-1">{errors.data_pedido.message}</p>}
             </div>
             <div>
-              <label>Entregador Responsável*</label>
+              <label className="font-medium text-slate-700">Previsão de Entrega*</label>
+              <input type="date" {...register('previsao_entrega')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.previsao_entrega && <p className="text-red-500 text-xs mt-1">{errors.previsao_entrega.message}</p>}
+            </div>
+            <div>
+              <label className="font-medium text-slate-700">Valor do Pedido*</label>
+              <input type="number" step="0.01" {...register('valor', { valueAsNumber: true })} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.valor && <p className="text-red-500 text-xs mt-1">{errors.valor.message}</p>}
+            </div>
+
+            {/* Row 2 */}
+            <div>
+              <label className="font-medium text-slate-700">Origem*</label>
+              <input type="text" {...register('origem')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.origem && <p className="text-red-500 text-xs mt-1">{errors.origem.message}</p>}
+            </div>
+            <div>
+              <label className="font-medium text-slate-700">Destino*</label>
+              <input type="text" {...register('destino')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.destino && <p className="text-red-500 text-xs mt-1">{errors.destino.message}</p>}
+            </div>
+            <div>
+              <label className="font-medium text-slate-700">Código de Rastreio</label>
+              <input type="text" {...register('codigo_rastreio')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.codigo_rastreio && <p className="text-red-500 text-xs mt-1">{errors.codigo_rastreio.message}</p>}
+            </div>
+
+            {/* Row 3 */}
+            <div>
+              <label className="font-medium text-slate-700">Cliente*</label>
+              <Controller
+                name="cliente_id"
+                control={control}
+                render={({ field }) => (
+                  <select {...field} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500">
+                    <option value="">Selecione um cliente</option>
+                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                )}
+              />
+              {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id.message}</p>}
+            </div>
+            <div>
+              <label className="font-medium text-slate-700">Entregador Responsável*</label>
               <Controller name="entregador_id" control={control} render={({ field }) => (
-                  <select {...field} className="w-full mt-2 input">
+                  <select {...field} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500">
                       <option value="">Selecione um entregador</option>
                       {entregadoresDisponiveis.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                   </select>
               )}/>
-              {errors.entregador_id && <p className='form-error'>{errors.entregador_id.message}</p>}
+              {errors.entregador_id && <p className="text-red-500 text-xs mt-1">{errors.entregador_id.message}</p>}
+            </div>
+            <div>
+              <label className="font-medium text-slate-700">Situação do Pedido*</label>
+              <Controller name="situacao_pedido" control={control} render={({ field }) => (
+                  <select {...field} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500">
+                      <option value="pedido_confirmado">Confirmado</option>
+                      <option value="pronto_envio">Pronto</option>
+                      <option value="enviado">Enviado</option>
+                      <option value="entrega_realizada">Entregue</option>
+                      <option value="entrega_sem_sucesso">Problemas</option>
+                  </select>
+              )}/>
+              {errors.situacao_pedido && <p className="text-red-500 text-xs mt-1">{errors.situacao_pedido.message}</p>}
+            </div>
+
+            {/* Row 4 */}
+            <div className="md:col-span-3">
+              <label className="font-medium text-slate-700">Descrição*</label>
+              <textarea {...register('descricao_compra')} className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500"/>
+              {errors.descricao_compra && <p className="text-red-500 text-xs mt-1">{errors.descricao_compra.message}</p>}
             </div>
           </div>
         </div>
 
         <div className="flex justify-end mt-8">
-          <button type="submit" disabled={isSubmitting} className="btn-primary bg-green-600">
+          <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl px-8 py-3 shadow-lg">
             {isSubmitting ? 'Salvando...' : (isEditMode ? 'Salvar Alterações' : 'Salvar Entrega')}
           </button>
         </div>

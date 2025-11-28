@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { Entrega, EntregaCompleta } from '@/types';
+import { Entrega, EntregaCompleta, SituacaoPrazo } from '@/types';
 
 export const useEntregas = () => {
   const [entregas, setEntregas] = useState<EntregaCompleta[]>([]);
@@ -10,14 +10,97 @@ export const useEntregas = () => {
   const fetchEntregas = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Buscar da tabela entregas com joins
       const { data, error } = await supabase
-        .from('entregas_completa') // Usando a VIEW com campos computados
-        .select('*')
+        .from('entregas')
+        .select(`
+          *,
+          clientes:cliente_id(nome, uf, cep),
+          entregadores:entregador_id(nome)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setEntregas(data || []);
+      
+      // Mapear para o formato EntregaCompleta
+      const mapped: EntregaCompleta[] = (data || []).map(e => {
+        console.log('🔍 Mapeando entrega:', e.numero_pedido, 'Status RAW:', e.situacao_pedido);
+
+        // --- Lógica para calcular situacao_prazo ---
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        let situacao_prazo: SituacaoPrazo = 'no_prazo'; // default
+
+        if (e.previsao_entrega) {
+            const previsao = new Date(e.previsao_entrega);
+            // Corrige o problema de timezone ao converter YYYY-MM-DD para Date
+            const offset = previsao.getTimezoneOffset();
+            previsao.setMinutes(previsao.getMinutes() + offset);
+            previsao.setHours(0, 0, 0, 0);
+
+            if (e.situacao_pedido === 'entrega_realizada' && e.data_entrega_final) {
+                const dataFinal = new Date(e.data_entrega_final);
+                const offsetFinal = dataFinal.getTimezoneOffset();
+                dataFinal.setMinutes(dataFinal.getMinutes() + offsetFinal);
+                dataFinal.setHours(0, 0, 0, 0);
+
+                if (dataFinal > previsao) {
+                    situacao_prazo = 'entregue_atraso';
+                } else {
+                    situacao_prazo = 'entregue_prazo';
+                }
+            } else if (e.situacao_pedido !== 'entrega_realizada') {
+                if (hoje > previsao) {
+                    situacao_prazo = 'atrasado';
+                } else {
+                    situacao_prazo = 'no_prazo';
+                }
+            }
+        }
+        
+        return {
+          id: e.id,
+          created_at: e.created_at,
+          numero_pedido: e.numero_pedido,
+          data_pedido: e.data_pedido,
+          previsao_entrega: e.previsao_entrega,
+          cliente_id: e.cliente_id,
+          descricao_compra: e.descricao_compra,
+          valor: e.valor,
+          situacao_pedido: e.situacao_pedido || 'pedido_confirmado', // Fallback
+          entregador_id: e.entregador_id,
+          data_entrega_final: e.data_entrega_final,
+          observacao: e.observacao,
+          user_id: e.user_id,
+          origem: e.origem,
+          destino: e.destino,
+          codigo_rastreio: e.codigo_rastreio,
+          // Campos computados/relacionados
+          cliente_nome: e.clientes?.nome || 'Cliente não encontrado',
+          cliente_uf: e.clientes?.uf || '',
+          cliente_cep: e.clientes?.cep || '',
+          entregador_nome: e.entregadores?.nome || 'Entregador não encontrado',
+          // Campos que podem vir da VIEW (se precisar calcular manualmente)
+          prazo_maximo: 0,
+          prazo_decorrido: 0,
+          situacao_prazo: situacao_prazo, // Usando a variável calculada
+          codigo_pedido: `PED-${e.numero_pedido}`,
+          mes: new Date(e.data_pedido).toLocaleString('pt-BR', { month: 'long' }),
+          ano: new Date(e.data_pedido).getFullYear().toString(),
+        };
+      });
+      
+      console.log('✅ Entregas carregadas:', mapped.map(e => ({ 
+        id: e.id, 
+        pedido: e.numero_pedido, 
+        status: e.situacao_pedido 
+      })));
+      
+      setEntregas(mapped);
     } catch (error: any) {
+      console.error('❌ Erro ao carregar entregas:', error);
       toast.error('Erro ao carregar entregas: ' + error.message);
     } finally {
       setLoading(false);
@@ -27,7 +110,7 @@ export const useEntregas = () => {
   const createEntrega = async (entrega: any) => {
     try {
       const { data, error } = await supabase
-        .from('entregas') // Inserir na tabela principal
+        .from('entregas')
         .insert([entrega])
         .select()
         .single();
@@ -42,17 +125,25 @@ export const useEntregas = () => {
     }
   };
 
-  const updateEntrega = async (id: string, updates: Partial<Entrega>) => {
+  const updateEntrega = async (id: string, updates: Partial<Entrega>, skipRefetch = false) => {
     try {
       const { error } = await supabase
-        .from('entregas') // Atualizar na tabela principal
+        .from('entregas')
         .update(updates)
         .eq('id', id);
 
       if (error) throw error;
+      
+      console.log(`✅ Entrega ${id} atualizada no banco`, updates);
+      
       toast.success('Entrega atualizada com sucesso!');
-      fetchEntregas();
+      
+      // Só faz refetch se skipRefetch for false
+      if (!skipRefetch) {
+        await fetchEntregas();
+      }
     } catch (error: any) {
+      console.error('❌ Erro ao atualizar entrega:', error);
       toast.error('Erro ao atualizar entrega: ' + error.message);
       throw error;
     }
@@ -61,7 +152,7 @@ export const useEntregas = () => {
   const deleteEntrega = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('entregas') // Deletar da tabela principal
+        .from('entregas')
         .delete()
         .eq('id', id);
 

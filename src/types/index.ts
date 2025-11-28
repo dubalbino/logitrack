@@ -41,6 +41,9 @@ export interface Entrega {
   valor: number
   situacao_pedido: SituacaoPedido
   entregador_id: string
+  origem: string
+  destino: string
+  codigo_rastreio?: string
   data_entrega_final?: string
   observacao?: string
   user_id: string

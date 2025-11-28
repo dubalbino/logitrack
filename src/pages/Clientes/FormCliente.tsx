@@ -160,7 +160,7 @@ const FormCliente = () => {
 
       {/* Form Card */}
       <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/20 min-h-[400px]">
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form id="cliente-form" onSubmit={handleSubmit(onSubmit)}>
             {/* Step 1: Dados Básicos */}
             {currentStep === 0 && (
               <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -285,7 +285,7 @@ const FormCliente = () => {
             Próximo
           </button>
         ) : (
-          <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl px-8 py-3 shadow-lg">
+          <button type="submit" form="cliente-form" disabled={isSubmitting} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl px-8 py-3 shadow-lg">
             {isSubmitting ? 'Salvando...' : 'Salvar Cliente'}
           </button>
         )}
