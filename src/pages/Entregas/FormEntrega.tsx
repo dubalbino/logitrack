@@ -55,8 +55,9 @@ const FormEntrega = () => {
 
   useEffect(() => {
     if (isEditMode && entregas.length > 0) {
-      const entregaId = Number(id);
-      const entrega = entregas.find(e => e.id === entregaId);
+      // O id da URL é string. O e.id é typed como string, mas é um número em runtime.
+      // Convertendo e.id para string a comparação funciona para o compilador e em runtime.
+      const entrega = entregas.find(e => String(e.id) === id);
 
       if (entrega) {
         // Formata datas e converte IDs para string para o formulário
