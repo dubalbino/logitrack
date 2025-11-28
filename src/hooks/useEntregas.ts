@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { Entrega, EntregaCompleta, SituacaoPrazo } from '@/types';
+import { format, subDays } from 'date-fns'; // Adicionar import
 
 export const useEntregas = () => {
   const [entregas, setEntregas] = useState<EntregaCompleta[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchEntregas = useCallback(async () => {
+
     try {
       setLoading(true);
       
@@ -25,36 +27,29 @@ export const useEntregas = () => {
       
       // Mapear para o formato EntregaCompleta
       const mapped: EntregaCompleta[] = (data || []).map(e => {
-        console.log('🔍 Mapeando entrega:', e.numero_pedido, 'Status RAW:', e.situacao_pedido);
-
         // --- Lógica para calcular situacao_prazo ---
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
+        const hojeStr = format(new Date(), 'yyyy-MM-dd');
+        const ontemStr = format(subDays(new Date(), 1), 'yyyy-MM-dd'); // Ontem
 
         let situacao_prazo: SituacaoPrazo = 'no_prazo'; // default
 
         if (e.previsao_entrega) {
-            const previsao = new Date(e.previsao_entrega);
-            // Corrige o problema de timezone ao converter YYYY-MM-DD para Date
-            const offset = previsao.getTimezoneOffset();
-            previsao.setMinutes(previsao.getMinutes() + offset);
-            previsao.setHours(0, 0, 0, 0);
+
 
             if (e.situacao_pedido === 'entrega_realizada' && e.data_entrega_final) {
-                const dataFinal = new Date(e.data_entrega_final);
-                const offsetFinal = dataFinal.getTimezoneOffset();
-                dataFinal.setMinutes(dataFinal.getMinutes() + offsetFinal);
-                dataFinal.setHours(0, 0, 0, 0);
-
-                if (dataFinal > previsao) {
+                // Se a entrega foi REALIZADA e tem data final
+                const dataFinalStr = e.data_entrega_final.split('T')[0];
+                if (dataFinalStr > e.previsao_entrega) {
                     situacao_prazo = 'entregue_atraso';
                 } else {
                     situacao_prazo = 'entregue_prazo';
                 }
-            } else if (e.situacao_pedido !== 'entrega_realizada') {
-                if (hoje > previsao) {
+            } else {
+                // Se a entrega AINDA NÃO foi realizada (ou foi realizada mas sem data final)
+                // Usamos a nova lógica de prazo:
+                if (e.previsao_entrega < hojeStr) { // Se a previsão é anterior a hoje
                     situacao_prazo = 'atrasado';
-                } else {
+                } else { // Se a previsão é ontem, hoje ou futuro
                     situacao_prazo = 'no_prazo';
                 }
             }
@@ -95,7 +90,8 @@ export const useEntregas = () => {
       console.log('✅ Entregas carregadas:', mapped.map(e => ({ 
         id: e.id, 
         pedido: e.numero_pedido, 
-        status: e.situacao_pedido 
+        status: e.situacao_pedido,
+        prazo: e.situacao_prazo // Adicionar para debug
       })));
       
       setEntregas(mapped);
