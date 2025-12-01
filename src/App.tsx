@@ -14,6 +14,7 @@ import FormEntregador from './pages/Entregadores/FormEntregador';
 import ListaEntregas from './pages/Entregas/ListaEntregas';
 import FormEntrega from './pages/Entregas/FormEntrega';
 import PesquisaPedido from './pages/Pesquisa/PesquisaPedido';
+import RastreamentoMapa from './pages/Rastreamento/RastreamentoMapa';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
               <Route path="entregas/novo" element={<FormEntrega />} />
               <Route path="entregas/:id/editar" element={<FormEntrega />} />
               <Route path="pesquisa" element={<PesquisaPedido />} />
+              <Route path="rastreamento" element={<RastreamentoMapa />} />
             </Route>
           </Route>
 

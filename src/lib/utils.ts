@@ -128,7 +128,7 @@ export const getStatusColor = (status: string) => {
     'entregue_prazo': 'bg-green-50 text-green-600',
     'entregue_atraso': 'bg-orange-100 text-orange-700'
   }
-  return colors[status] || 'bg-gray-100 text-gray-700'
+  return colors[status] || colors['pedido_confirmado']
 }
 
 // Status labels
@@ -147,7 +147,7 @@ export const getStatusLabel = (status: string) => {
     'entregue_prazo': 'Entregue no Prazo',
     'entregue_atraso': 'Entregue com Atraso'
   }
-  return labels[status] || status
+  return labels[status] || labels['pedido_confirmado']
 }
 
 // Debounce
