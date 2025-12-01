@@ -1,11 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Truck } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
+import logo from '@/assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Por favor, insira um email válido.' }),
@@ -42,7 +43,7 @@ const Login = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600">
+    <div className="flex items-center justify-center min-h-screen bg-black">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -50,8 +51,8 @@ const Login = () => {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 text-white text-4xl font-bold">
-            <Truck size={48} />
+          <div className="flex flex-col items-center justify-center gap-3 text-white text-4xl font-bold">
+            <img src={logo} alt="LogiTrack Logo" className="h-24 w-auto" />
             <h1>LogiTrack</h1>
           </div>
         </div>
@@ -95,15 +96,6 @@ const Login = () => {
               {isSubmitting ? 'Entrando...' : 'Entrar'}
             </motion.button>
           </form>
-
-          <div className="text-center mt-6">
-            <p className="text-sm text-slate-600">
-              Não tem conta?{' '}
-              <Link to="/register" className="font-medium text-purple-600 hover:text-purple-700">
-                Criar conta →
-              </Link>
-            </p>
-          </div>
         </div>
       </motion.div>
       {/* Componente Toast será renderizado no App.tsx principal */}
