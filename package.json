@@ -19,6 +19,7 @@
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "leaflet": "^1.9.4",
+    "leaflet-routing-machine": "^3.2.12",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
+    "@types/leaflet-routing-machine": "^3.2.9",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { useDriverTracking } from '../../../useDriverTracking';
-import { supabase } from '../../lib/supabase';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+import 'leaflet-routing-machine';
+import { supabase } from '../../lib/supabase';
 import truckIconUrl from '../../assets/caminhao.png';
 
 // Corrigir ícones padrão do Leaflet
@@ -37,15 +38,114 @@ interface TrackingData {
   timestamp: string;
 }
 
+interface RouteInfo {
+  distance: string;
+  time: string;
+}
+
+// Função para normalizar endereço antes de geocodificar
+function normalizeAddress(address: string): string {
+  let normalized = address;
+  
+  // Expandir abreviações comuns
+  const abbreviations: Record<string, string> = {
+    'R.': 'Rua',
+    'Av.': 'Avenida',
+    'Ver.': 'Vereador',
+    'Pres.': 'Presidente',
+    'Sen.': 'Senador',
+    'Dep.': 'Deputado',
+    'Dr.': 'Doutor',
+    'Profa.': 'Professora',
+    'Prof.': 'Professor',
+    'Rod.': 'Rodovia',
+    'Trav.': 'Travessa',
+    'Pç.': 'Praça',
+    'Al.': 'Alameda',
+    'Estr.': 'Estrada',
+    'Vl.': 'Vila',
+    'Jd.': 'Jardim',
+    'Res.': 'Residencial'
+  };
+  
+  // Substituir abreviações
+  Object.entries(abbreviations).forEach(([abbr, full]) => {
+    const regex = new RegExp(`\\b${abbr.replace('.', '\\.')}`, 'gi');
+    normalized = normalized.replace(regex, full);
+  });
+  
+  // Remover múltiplos espaços
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+  
+  return normalized;
+}
+
+// Função para geocodificar endereço usando Nominatim
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    // Normalizar endereço
+    const normalizedAddress = normalizeAddress(address);
+    
+    // Se o endereço já contém "SP" ou "Brasil", não adicionar novamente
+    const addressToGeocode = normalizedAddress.includes('SP') || normalizedAddress.includes('Brasil') 
+      ? normalizedAddress 
+      : `${normalizedAddress}, Brasil`;
+    
+    console.log(`Tentando geocodificar: "${address}" -> "${addressToGeocode}"`);
+    
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressToGeocode)}&limit=1&countrycodes=br`
+    );
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      console.log(`✅ Geocodificado com sucesso: ${address} -> Lat: ${data[0].lat}, Lng: ${data[0].lon}`);
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    } else {
+      console.warn(`❌ Não foi possível geocodificar: ${address}`);
+      console.warn(`Endereço normalizado tentado: ${addressToGeocode}`);
+      
+      // Tentar busca mais ampla (apenas cidade e estado)
+      const parts = address.split(',');
+      if (parts.length > 1) {
+        const cityState = parts[parts.length - 1].trim();
+        console.log(`Tentando busca ampla com: ${cityState}`);
+        
+        const fallbackResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityState)}&limit=1&countrycodes=br`
+        );
+        const fallbackData = await fallbackResponse.json();
+        
+        if (fallbackData && fallbackData.length > 0) {
+          console.log(`⚠️ Usando localização aproximada (centro da cidade): ${cityState}`);
+          return {
+            lat: parseFloat(fallbackData[0].lat),
+            lng: parseFloat(fallbackData[0].lon)
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao geocodificar:', error);
+  }
+  return null;
+}
+
 export default function RastreamentoMapa() {
   const [entregas, setEntregas] = useState<Entrega[]>([]);
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [selectedMotorista, setSelectedMotorista] = useState<number | null>(null);
   const [trackingData, setTrackingData] = useState<Record<number, TrackingData>>({});
+  const [routeInfo, setRouteInfo] = useState<Record<number, RouteInfo>>({});
+  const [geocodedAddresses, setGeocodedAddresses] = useState<Record<string, { lat: number; lng: number }>>({});
   
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<Record<number, { driver?: L.Marker; destination?: L.Marker }>>({});
+  const markersRef = useRef<Record<number, { driver?: L.Marker; destination?: L.Marker; origin?: L.Marker }>>({});
+  const routesRef = useRef<Record<number, L.Routing.Control>>({});
 
   // Inicializar mapa
   useEffect(() => {
@@ -86,6 +186,24 @@ export default function RastreamentoMapa() {
       // Buscar última localização de cada entrega
       for (const entrega of entregasData) {
         fetchLastLocation(entrega.id);
+        
+        // Geocodificar endereços se necessário
+        if (!geocodedAddresses[entrega.origem]) {
+          const coords = await geocodeAddress(entrega.origem);
+          if (coords) {
+            setGeocodedAddresses(prev => ({ ...prev, [entrega.origem]: coords }));
+          }
+          // Respeitar limite de 1 req/segundo do Nominatim
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        if (!geocodedAddresses[entrega.destino] && !entrega.destino_lat) {
+          const coords = await geocodeAddress(entrega.destino);
+          if (coords) {
+            setGeocodedAddresses(prev => ({ ...prev, [entrega.destino]: coords }));
+          }
+          // Respeitar limite de 1 req/segundo do Nominatim
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
     }
 
@@ -138,7 +256,7 @@ export default function RastreamentoMapa() {
     };
   }, []);
 
-  // Assinar atualizações na tabela de entregas para re-buscar dados quando o status muda
+  // Assinar atualizações na tabela de entregas
   useEffect(() => {
     const deliveriesChannel = supabase
       .channel('entregas-status-changes')
@@ -161,7 +279,7 @@ export default function RastreamentoMapa() {
     };
   }, []);
 
-  // Atualizar marcadores no mapa
+  // Atualizar marcadores e rotas no mapa
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -169,7 +287,7 @@ export default function RastreamentoMapa() {
       ? entregas.filter(e => e.entregador_id === selectedMotorista)
       : entregas;
 
-    // Limpar marcadores antigos que não estão mais no filtro
+    // Limpar marcadores e rotas antigas
     Object.keys(markersRef.current).forEach(key => {
       const entregaId = parseInt(key);
       if (!entregasFiltradas.find(e => e.id === entregaId)) {
@@ -179,12 +297,22 @@ export default function RastreamentoMapa() {
         if (markersRef.current[entregaId]?.destination) {
           markersRef.current[entregaId].destination!.remove();
         }
+        if (markersRef.current[entregaId]?.origin) {
+          markersRef.current[entregaId].origin!.remove();
+        }
         delete markersRef.current[entregaId];
       }
     });
 
-    const bounds: L.LatLngBounds[] = [];
+    Object.keys(routesRef.current).forEach(key => {
+      const entregaId = parseInt(key);
+      if (!entregasFiltradas.find(e => e.id === entregaId)) {
+        mapRef.current!.removeControl(routesRef.current[entregaId]);
+        delete routesRef.current[entregaId];
+      }
+    });
 
+    // Processar cada entrega
     entregasFiltradas.forEach(entrega => {
       const location = trackingData[entrega.id];
       
@@ -192,19 +320,49 @@ export default function RastreamentoMapa() {
         markersRef.current[entrega.id] = {};
       }
 
-      // Marcador do motorista
+      // Obter coordenadas de origem e destino
+      const origemCoords = location 
+        ? { lat: location.motorista_lat, lng: location.motorista_lng }
+        : geocodedAddresses[entrega.origem];
+      
+      const destinoCoords = entrega.destino_lat && entrega.destino_lng
+        ? { lat: entrega.destino_lat, lng: entrega.destino_lng }
+        : geocodedAddresses[entrega.destino];
+
+      // Marcador de origem
+      if (origemCoords && !location) {
+        const pos: [number, number] = [origemCoords.lat, origemCoords.lng];
+        
+        if (!markersRef.current[entrega.id].origin) {
+          const icon = L.divIcon({
+            html: '<div style="background:#2196F3;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3)">📍</div>',
+            className: '',
+            iconSize: [35, 35],
+            iconAnchor: [17, 35]
+          });
+          
+          markersRef.current[entrega.id].origin = L.marker(pos, { icon })
+            .addTo(mapRef.current!)
+            .bindPopup(`
+              <strong>📍 Origem</strong><br/>
+              <strong>Entrega #${entrega.id}</strong><br/>
+              ${entrega.origem}
+            `);
+        }
+      }
+
+      // Marcador do motorista (posição atual)
       if (location) {
         const pos: [number, number] = [location.motorista_lat, location.motorista_lng];
-        bounds.push(L.latLngBounds([pos, pos]));
         
         if (markersRef.current[entrega.id].driver) {
           markersRef.current[entrega.id].driver!.setLatLng(pos);
         } else {
           const truckIcon = L.icon({
             iconUrl: truckIconUrl,
-            iconSize: [40, 40], // Tamanho do ícone [largura, altura]
-            iconAnchor: [20, 40], // Ponto do ícone que corresponde à localização no mapa
-            popupAnchor: [0, -40] // Ponto a partir do qual o popup se abre, relativo ao iconAnchor
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40]
           });
           
           const entregadorNome = entregadores.find(e => e.id === entrega.entregador_id)?.nome || 'Motorista';
@@ -221,9 +379,8 @@ export default function RastreamentoMapa() {
       }
 
       // Marcador do destino
-      if (entrega.destino_lat && entrega.destino_lng) {
-        const pos: [number, number] = [entrega.destino_lat, entrega.destino_lng];
-        bounds.push(L.latLngBounds([pos, pos]));
+      if (destinoCoords) {
+        const pos: [number, number] = [destinoCoords.lat, destinoCoords.lng];
         
         if (!markersRef.current[entrega.id].destination) {
           const icon = L.divIcon({
@@ -242,16 +399,67 @@ export default function RastreamentoMapa() {
             `);
         }
       }
+
+      // Criar rota automaticamente
+      if (origemCoords && destinoCoords && !routesRef.current[entrega.id]) {
+        const startPoint = L.latLng(origemCoords.lat, origemCoords.lng);
+        const endPoint = L.latLng(destinoCoords.lat, destinoCoords.lng);
+
+        const routingControl = (L.Routing as any).control({
+          waypoints: [startPoint, endPoint],
+          routeWhileDragging: false,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: false,
+          show: false,
+          lineOptions: {
+            styles: [{ 
+              color: '#6a0dad', 
+              opacity: 0.7, 
+              weight: 5 
+            }],
+            extendToWaypoints: true,
+            missingRouteTolerance: 0
+          },
+          createMarker: function() { return null; } // Não criar marcadores automáticos
+        }).addTo(mapRef.current);
+
+        // Capturar informações da rota
+        routingControl.on('routesfound', function(e: any) {
+          const routes = e.routes;
+          const summary = routes[0].summary;
+          
+          const distanceKm = (summary.totalDistance / 1000).toFixed(1);
+          const timeMin = Math.round(summary.totalTime / 60);
+          const timeHours = Math.floor(timeMin / 60);
+          const timeMinutes = timeMin % 60;
+          
+          const timeStr = timeHours > 0 
+            ? `${timeHours}h ${timeMinutes}min`
+            : `${timeMinutes}min`;
+
+          setRouteInfo(prev => ({
+            ...prev,
+            [entrega.id]: {
+              distance: `${distanceKm} km`,
+              time: timeStr
+            }
+          }));
+        });
+
+        routesRef.current[entrega.id] = routingControl;
+      }
     });
 
     // Ajustar zoom para mostrar todos os marcadores
-    if (bounds.length > 0) {
-      const group = L.featureGroup(
-        Object.values(markersRef.current).flatMap(m => [m.driver, m.destination].filter(Boolean) as L.Marker[])
-      );
+    const markers = Object.values(markersRef.current).flatMap(m => 
+      [m.driver, m.destination, m.origin].filter(Boolean) as L.Marker[]
+    );
+    if (markers.length > 0) {
+      const group = L.featureGroup(markers);
       mapRef.current.fitBounds(group.getBounds().pad(0.1));
     }
-  }, [entregas, trackingData, selectedMotorista, entregadores]);
+  }, [entregas, trackingData, selectedMotorista, entregadores, geocodedAddresses]);
 
   const entregasFiltradas = selectedMotorista
     ? entregas.filter(e => e.entregador_id === selectedMotorista)
@@ -325,6 +533,7 @@ export default function RastreamentoMapa() {
             entregasFiltradas.map((ent) => {
               const entregador = entregadores.find(e => e.id === ent.entregador_id);
               const location = trackingData[ent.id];
+              const route = routeInfo[ent.id];
               
               return (
                 <div
@@ -361,6 +570,26 @@ export default function RastreamentoMapa() {
                     <div>📍 Origem: {ent.origem}</div>
                     <div>🎯 Destino: {ent.destino}</div>
                     <div>📦 {ent.descricao_compra}</div>
+                    
+                    {/* Informações da Rota */}
+                    {route && (
+                      <div style={{ 
+                        marginTop: '10px',
+                        padding: '10px',
+                        background: '#f0e6ff',
+                        borderRadius: '8px',
+                        border: '1px solid #6a0dad'
+                      }}>
+                        <div style={{ fontWeight: '600', color: '#6a0dad', marginBottom: '5px' }}>
+                          🗺️ Informações da Rota
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>
+                          <div>⏱️ Tempo estimado: <strong>{route.time}</strong></div>
+                          <div>📏 Distância: <strong>{route.distance}</strong></div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {location && (
                       <div style={{ 
                         marginTop: '8px', 
