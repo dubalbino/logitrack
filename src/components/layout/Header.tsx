@@ -1,9 +1,8 @@
-import { Menu } from 'lucide-react';
-import logoUrl from '../../assets/logo.png';
+import { Menu, Truck } from 'lucide-react';
 
 const Header = () => {
   return (
-    <header className="sticky top-0 z-40 bg-black text-white">
+    <header className="sticky top-0 z-40 bg-[#A445F7] text-white">
       <div className="h-20 px-4 md:px-8 flex items-center justify-between">
         {/* Botão Hamburger Menu para Mobile */}
         <button className="md:hidden text-gray-300">
@@ -11,9 +10,9 @@ const Header = () => {
         </button>
 
         {/* Logo e novo título */}
-        <div className="hidden md:flex items-center gap-4">
-          <img src={logoUrl} alt="LogiTrack Logo" className="h-10 w-auto" />
-          
+        <div className="hidden md:flex items-center gap-2">
+          <Truck size={32} />
+          <h1 className="text-xl font-bold">LogiTrack</h1>
         </div>
 
         {/* Avatar do Usuário */}

@@ -5,8 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Mail, Lock } from 'lucide-react';
-import logo from '@/assets/logo.png';
+import { Mail, Lock, Truck } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Por favor, insira um email válido.' }),
@@ -43,7 +42,7 @@ const Login = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-[#A445F7] to-[#3B82F6]">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,36 +51,36 @@ const Login = () => {
       >
         <div className="text-center mb-8">
           <div className="flex flex-col items-center justify-center gap-3 text-white text-4xl font-bold">
-            <img src={logo} alt="LogiTrack Logo" className="h-24 w-auto" />
+            <Truck className="h-24 w-auto text-white" />
             <h1>LogiTrack</h1>
           </div>
         </div>
 
-        <div className="bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-3xl p-10">
+        <div className="bg-white shadow-lg rounded-xl p-10">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Bem-vindo de volta</h2>
-            <p className="text-slate-500 mb-8">Faça login para continuar</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo de volta</h2>
+            <p className="text-gray-400 mb-8">Faça login para continuar</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-green-400" size={20} />
               <input
                 {...register('email')}
                 type="email"
                 placeholder="Email"
-                className="w-full bg-slate-50 border-0 rounded-xl px-12 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full bg-gray-100 border-0 rounded-lg px-12 py-3 focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1 ml-2">{errors.email.message}</p>}
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-green-400" size={20} />
               <input
                 {...register('password')}
                 type="password"
                 placeholder="Senha"
-                className="w-full bg-slate-50 border-0 rounded-xl px-12 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full bg-gray-100 border-0 rounded-lg px-12 py-3 focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
               />
               {errors.password && <p className="text-red-500 text-xs mt-1 ml-2">{errors.password.message}</p>}
             </div>
@@ -91,7 +90,7 @@ const Login = () => {
               whileTap={{ scale: 0.95 }}
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl px-8 py-4 shadow-lg transition-all duration-300 disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-800 text-white font-bold rounded-lg px-8 py-4 shadow-lg transition-all duration-300 disabled:opacity-50"
             >
               {isSubmitting ? 'Entrando...' : 'Entrar'}
             </motion.button>

@@ -22,7 +22,7 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="hidden md:flex fixed top-0 left-0 h-screen w-20 flex-col items-center bg-black text-white shadow-2xl z-50">
+    <aside className="hidden md:flex fixed top-0 left-0 h-screen w-20 flex-col items-center bg-gradient-to-b from-[#A445F7] to-[#3B82F6] text-white shadow-2xl z-50">
       <div className="w-12 h-12 mx-auto my-4 flex items-center justify-center rounded-2xl hover:bg-white/10 cursor-pointer">
         <Bell size={24} />
       </div>
